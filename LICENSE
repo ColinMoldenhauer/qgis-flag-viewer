@@ -1,0 +1,12 @@
+GNU General Public License v3.0
+
+This project is licensed under the terms of the GNU General Public License
+as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+QGIS itself is GPL-licensed and the official QGIS plugin repository
+requires plugins to use a GPL-compatible license; GPL-3.0-or-later is used
+here as a safe default. See https://www.gnu.org/licenses/gpl-3.0.txt for
+the full license text. Replace this file with the full text before
+publishing, or swap in GPL-2.0-or-later if you specifically need
+compatibility with GPLv2-only code you plan to reuse.

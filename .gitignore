@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.vscode/
+.idea/
+
+# QGIS resource compilation output (regenerate with pyrcc5 if you add a .qrc)
+resources_rc.py
+
+# Packaging output
+/dist/
+*.zip
+
+# Local design notes, not published to the repo
+/DESIGN.md
