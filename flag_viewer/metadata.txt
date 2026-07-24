@@ -8,9 +8,9 @@ email=colin.moldenhauer@posteo.de
 
 about=Flag Viewer samples the raster band value under the mouse cursor and decodes it into its CF flag_meanings, using flag_values/flag_masks metadata auto-detected from the file, or a user-supplied JSON/YAML mapping. Supports both "categorized" flags (one value = one meaning) and "bitmask" flags (each bit = one meaning).
 
-tracker=https://github.com/CHANGEME/qgis-flag-viewer/issues
-repository=https://github.com/CHANGEME/qgis-flag-viewer
-homepage=https://github.com/CHANGEME/qgis-flag-viewer
+tracker=https://github.com/ColinMoldenhauer/qgis-flag-viewer/issues
+repository=https://github.com/ColinMoldenhauer/qgis-flag-viewer
+homepage=https://github.com/ColinMoldenhauer/qgis-flag-viewer
 
 tags=raster,flags,cf-conventions,netcdf,identify,value
 

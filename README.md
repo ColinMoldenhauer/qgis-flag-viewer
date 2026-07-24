@@ -8,9 +8,6 @@ instead of showing the raw digital number.
 Status: **early draft / untested in a live QGIS session.** The core
 decoding logic is unit tested and dependency-free; the QGIS-facing widget
 code follows standard plugin patterns but hasn't been run inside QGIS yet.
-See [DESIGN.md](DESIGN.md) for the reasoning behind the architecture,
-including why this is a standalone plugin rather than a fork of Value
-Tool, and how flag mapping detection/input is meant to work.
 
 ## Layout
 
@@ -20,6 +17,7 @@ flag_viewer/              the installable plugin package
     flag_decoder.py        FlagDefinition: categorized + bitmask decode()
     cf_metadata.py         auto-detect flag_values/flag_masks/flag_meanings via GDAL band metadata
     mapping_io.py          load/save a mapping as JSON or YAML
+    layer_property.py      load/save a mapping as a QGIS layer custom property (project-embedded)
   metadata.txt             QGIS plugin manifest
   flag_viewer_plugin.py    main plugin class (toolbar action, menu, wiring)
   flag_map_tool.py         QgsMapTool that reports the cursor's map position
@@ -52,7 +50,41 @@ they run in a plain Python environment — no QGIS install required.
 4. Load a raster with CF flag attributes (e.g. a NetCDF/HDF5 file opened
    through GDAL), click the Flag Viewer toolbar icon, and move the mouse
    over the raster. If auto-detection doesn't find a mapping, use
-   Raster > Flag Viewer > Load/Edit Flag Mapping.
+   Raster > Flag Viewer > Load/Edit Flag Mapping. A mapping loaded or
+   edited this way is saved onto the layer and survives closing and
+   reopening the project — no need to keep a sidecar file around or
+   re-load it every session. Raster > Flag Viewer > Clear Flag Mapping
+   removes it again.
+
+No data handy? [sample_data/](sample_data/) has four tiny 4x4 rasters
+(2 GeoTIFF, 2 NetCDF) covering both flag modes and both the auto-detect
+and manual-mapping paths — see [sample_data/README.md](sample_data/README.md).
 
 Not yet verified end-to-end in a running QGIS instance — treat this as a
 first pass to react to and iterate on, not a finished plugin.
+
+## Roadmap to the official QGIS plugin repository
+
+Not submitted yet. Rough path to [plugins.qgis.org](https://plugins.qgis.org):
+
+1. **Verify in a live QGIS session** (see above) — auto-detection, manual
+   mapping load/edit, and the dock widget all need to actually work
+   before anything else matters.
+2. **Push this repo to its public GitHub home.** `metadata.txt` already
+   points at `github.com/ColinMoldenhauer/qgis-flag-viewer` (matching the
+   `origin` remote); the repo itself isn't public yet.
+3. **Package and validate** the `flag_viewer/` folder as a plugin zip
+   (folder name must match the plugin id) and run it through the
+   [official plugin validator](https://plugins.qgis.org/plugins/) or
+   `qgis-plugin-ci` to catch metadata/structural issues before submitting.
+4. **Create a QGIS plugins.qgis.org account** and submit the zip through
+   the web form — this reads `metadata.txt` for the listing details.
+5. **Pass initial review**: first-time submissions are reviewed manually
+   by the QGIS plugin approval team (install/run sanity check, license
+   check, no obvious malicious/unsafe code) before appearing publicly.
+6. **Ship as `experimental=True`** (already set) for early users, then
+   flip to stable once it's proven itself across a few versions and
+   real-world rasters.
+7. **Iterate via version bumps**: each new `version` in `metadata.txt`
+   with a changelog entry is how updates reach users who already
+   installed it.

@@ -17,22 +17,31 @@ PathLike = Union[str, Path]
 
 def load_mapping(path: PathLike) -> FlagDefinition:
     path = Path(path)
-    data = _read(path)
-    return FlagDefinition(
-        meanings=data["flag_meanings"],
-        values=data.get("flag_values"),
-        masks=data.get("flag_masks"),
-    )
+    return definition_from_dict(_read(path))
 
 
 def save_mapping(path: PathLike, definition: FlagDefinition) -> None:
     path = Path(path)
+    _write(path, definition_to_dict(definition))
+
+
+def definition_to_dict(definition: FlagDefinition) -> dict:
+    """The JSON-serializable shape shared by sidecar files and layer
+    custom-property storage (see ``layer_property.py``)."""
     data = {"flag_meanings": list(definition.meanings)}
     if definition.values is not None:
         data["flag_values"] = list(definition.values)
     if definition.masks is not None:
         data["flag_masks"] = list(definition.masks)
-    _write(path, data)
+    return data
+
+
+def definition_from_dict(data: dict) -> FlagDefinition:
+    return FlagDefinition(
+        meanings=data["flag_meanings"],
+        values=data.get("flag_values"),
+        masks=data.get("flag_masks"),
+    )
 
 
 def _read(path: Path) -> dict:

@@ -11,6 +11,8 @@ from qgis.PyQt.QtWidgets import (
 )
 from qgis.core import QgsProject, QgsRasterLayer
 
+from .core.layer_property import clear_mapping_on_layer, save_mapping_to_layer
+
 
 class FlagViewerDockWidget(QDockWidget):
     COLUMNS = ("Layer", "Band", "Value", "Meaning(s)")
@@ -29,11 +31,25 @@ class FlagViewerDockWidget(QDockWidget):
         layout.addWidget(self.table)
         self.setWidget(container)
 
-    def set_mapping(self, layer_id, definition):
-        self._mappings[layer_id] = definition
+    def set_mapping(self, layer, definition, persist=True):
+        """Register ``definition`` as the mapping for ``layer``.
+
+        ``persist`` also stores it as a layer custom property so it
+        survives closing and reopening the project. Pass False for
+        mappings that are cheap to rediscover (e.g. freshly auto-detected
+        from the raster's own CF metadata) to avoid writing redundant
+        state into the project file.
+        """
+        self._mappings[layer.id()] = definition
+        if persist:
+            save_mapping_to_layer(layer, definition)
 
     def mapping_for(self, layer_id):
         return self._mappings.get(layer_id)
+
+    def clear_mapping(self, layer):
+        self._mappings.pop(layer.id(), None)
+        clear_mapping_on_layer(layer)
 
     def update_position(self, map_point):
         rows = []

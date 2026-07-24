@@ -7,6 +7,7 @@ from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
 from qgis.core import QgsProject, QgsRasterLayer
 
 from .core.cf_metadata import detect_from_raster_path
+from .core.layer_property import load_mapping_from_layer
 from .core.mapping_io import load_mapping
 from .flag_dock_widget import FlagViewerDockWidget
 from .flag_map_tool import FlagIdentifyMapTool
@@ -24,6 +25,7 @@ class FlagViewerPlugin:
         self.toggle_action = None
         self.load_mapping_action = None
         self.edit_mapping_action = None
+        self.clear_mapping_action = None
 
     def initGui(self):
         icon = QIcon(os.path.join(self.plugin_dir, "resources", "icon.svg"))
@@ -42,6 +44,10 @@ class FlagViewerPlugin:
         self.edit_mapping_action.triggered.connect(self.edit_mapping_for_active_layer)
         self.iface.addPluginToRasterMenu(MENU_NAME, self.edit_mapping_action)
 
+        self.clear_mapping_action = QAction("Clear Flag Mapping", self.iface.mainWindow())
+        self.clear_mapping_action.triggered.connect(self.clear_mapping_for_active_layer)
+        self.iface.addPluginToRasterMenu(MENU_NAME, self.clear_mapping_action)
+
         self.dock_widget = FlagViewerDockWidget(self.iface)
         self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dock_widget)
         self.dock_widget.hide()
@@ -51,6 +57,7 @@ class FlagViewerPlugin:
         self.iface.removePluginRasterMenu(MENU_NAME, self.toggle_action)
         self.iface.removePluginRasterMenu(MENU_NAME, self.load_mapping_action)
         self.iface.removePluginRasterMenu(MENU_NAME, self.edit_mapping_action)
+        self.iface.removePluginRasterMenu(MENU_NAME, self.clear_mapping_action)
         if self.dock_widget is not None:
             self.iface.removeDockWidget(self.dock_widget)
         self.map_tool = None
@@ -74,9 +81,21 @@ class FlagViewerPlugin:
                 continue
             if self.dock_widget.mapping_for(layer.id()) is not None:
                 continue  # don't clobber a mapping the user already loaded/edited
+
+            # A mapping saved on the layer (from a previous Load/Edit in
+            # this or an earlier session) takes priority over re-running
+            # auto-detection, since it may be a user-supplied mapping that
+            # auto-detection can't reproduce (e.g. a plain GeoTIFF).
+            definition = load_mapping_from_layer(layer)
+            if definition is not None:
+                self.dock_widget.set_mapping(layer, definition, persist=False)
+                continue
+
             definition = detect_from_raster_path(layer.source())
             if definition is not None:
-                self.dock_widget.set_mapping(layer.id(), definition)
+                # Recoverable from the file's own CF metadata every time,
+                # so there's no need to also duplicate it into the project.
+                self.dock_widget.set_mapping(layer, definition, persist=False)
 
     def load_mapping_for_active_layer(self):
         layer = self.iface.activeLayer()
@@ -93,7 +112,7 @@ class FlagViewerPlugin:
         except Exception as exc:
             QMessageBox.critical(self.iface.mainWindow(), MENU_NAME, f"Could not load mapping:\n{exc}")
             return
-        self.dock_widget.set_mapping(layer.id(), definition)
+        self.dock_widget.set_mapping(layer, definition)
 
     def edit_mapping_for_active_layer(self):
         layer = self.iface.activeLayer()
@@ -105,4 +124,11 @@ class FlagViewerPlugin:
         if dialog.exec_():
             definition = dialog.to_definition()
             if definition is not None:
-                self.dock_widget.set_mapping(layer.id(), definition)
+                self.dock_widget.set_mapping(layer, definition)
+
+    def clear_mapping_for_active_layer(self):
+        layer = self.iface.activeLayer()
+        if not isinstance(layer, QgsRasterLayer):
+            QMessageBox.warning(self.iface.mainWindow(), MENU_NAME, "Select a raster layer first.")
+            return
+        self.dock_widget.clear_mapping(layer)
