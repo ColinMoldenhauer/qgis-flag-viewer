@@ -16,5 +16,8 @@ resources_rc.py
 /dist/
 *.zip
 
+# Local Claude Code harness state, not project content
+/.claude/
+
 # Local design notes, not published to the repo
 /DESIGN.md

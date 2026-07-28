@@ -1,0 +1,39 @@
+name: Test and package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-dev.txt
+          pip install qgis-plugin-ci
+
+      - name: Run tests
+        run: pytest
+
+      # "latest" is a placeholder version, not a real release -- this step
+      # only proves flag_viewer/ still packages cleanly from a clean git
+      # archive (right plugin_path, valid metadata.txt, no accidental
+      # dependency on files outside flag_viewer/). Actual versioned
+      # packaging happens in release.yml, driven by the release tag.
+      - name: Package plugin (validation only, nothing is published)
+        run: qgis-plugin-ci package latest
+
+      - name: Upload packaged zip as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flag_viewer-plugin-zip
+          path: "*.zip"

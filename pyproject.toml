@@ -1,3 +1,8 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+
+[tool.qgis-plugin-ci]
+plugin_path = "flag_viewer"
+github_organization_slug = "ColinMoldenhauer"
+project_slug = "qgis-flag-viewer"

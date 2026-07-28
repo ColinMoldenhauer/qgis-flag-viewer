@@ -73,18 +73,25 @@ Not submitted yet. Rough path to [plugins.qgis.org](https://plugins.qgis.org):
 2. **Push this repo to its public GitHub home.** `metadata.txt` already
    points at `github.com/ColinMoldenhauer/qgis-flag-viewer` (matching the
    `origin` remote); the repo itself isn't public yet.
-3. **Package and validate** the `flag_viewer/` folder as a plugin zip
-   (folder name must match the plugin id) and run it through the
-   [official plugin validator](https://plugins.qgis.org/plugins/) or
-   `qgis-plugin-ci` to catch metadata/structural issues before submitting.
+3. **Package and validate** — done via [qgis-plugin-ci](https://github.com/qgis/qgis-plugin-ci)
+   (config in `pyproject.toml`'s `[tool.qgis-plugin-ci]`).
+   `.github/workflows/package.yml` runs on every push/PR and packages
+   `flag_viewer/` into a zip as a build check (nothing published);
+   `.github/workflows/release.yml` attaches that zip to a GitHub Release
+   once one is published. Publishing straight to plugins.qgis.org via the
+   same tool (`--osgeo-username`/`--osgeo-password`) is left commented out
+   in `release.yml` until after step 4 below.
 4. **Create a QGIS plugins.qgis.org account** and submit the zip through
-   the web form — this reads `metadata.txt` for the listing details.
+   the web form — this reads `metadata.txt` for the listing details. (Or,
+   once you have an OSGeo account, add `OSGEO_USER`/`OSGEO_PASSWORD` as
+   repo secrets and uncomment the publish step in `release.yml` to do
+   this automatically on release.)
 5. **Pass initial review**: first-time submissions are reviewed manually
    by the QGIS plugin approval team (install/run sanity check, license
    check, no obvious malicious/unsafe code) before appearing publicly.
 6. **Ship as `experimental=True`** (already set) for early users, then
    flip to stable once it's proven itself across a few versions and
    real-world rasters.
-7. **Iterate via version bumps**: each new `version` in `metadata.txt`
-   with a changelog entry is how updates reach users who already
-   installed it.
+7. **Iterate via version bumps**: each new `version` in `metadata.txt`,
+   tagged and released on GitHub, is what `release.yml` packages and
+   ships to users who already installed it.
