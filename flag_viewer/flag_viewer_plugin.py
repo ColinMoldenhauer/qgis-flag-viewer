@@ -3,7 +3,7 @@ import os
 
 from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
+from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox, QSizePolicy, QWidget
 from qgis.core import QgsMeshLayer, QgsProject, QgsRasterLayer
 
 from .core.cf_metadata import detect_from_band_metadata, detect_from_raster_path
@@ -26,6 +26,7 @@ class FlagViewerPlugin:
         self.load_mapping_action = None
         self.edit_mapping_action = None
         self.clear_mapping_action = None
+        self.lock_action = None
 
     def _icon(self, name):
         return QIcon(os.path.join(self.plugin_dir, "resources", name))
@@ -59,10 +60,22 @@ class FlagViewerPlugin:
         self.iface.addPluginToRasterMenu(MENU_NAME, self.clear_mapping_action)
         self.iface.addPluginToMeshMenu(MENU_NAME, self.clear_mapping_action)
 
+        self.lock_action = QAction(self._icon("lock.svg"), "Lock Position", self.iface.mainWindow())
+        self.lock_action.setCheckable(True)
+        self._update_lock_tooltip(locked=False)
+        self.lock_action.toggled.connect(self._set_map_tool_locked)
+
         self.dock_widget = FlagViewerDockWidget(self.iface)
         self.dock_widget.toolbar.addAction(self.load_mapping_action)
         self.dock_widget.toolbar.addAction(self.edit_mapping_action)
         self.dock_widget.toolbar.addAction(self.clear_mapping_action)
+        self.dock_widget.toolbar.addSeparator()
+        self.dock_widget.toolbar.addAction(self.lock_action)
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.dock_widget.toolbar.addWidget(spacer)
+        self.dock_widget.toolbar.addWidget(self.dock_widget.layer_scope_label)
+        self.dock_widget.toolbar.addWidget(self.dock_widget.layer_scope_combo)
         self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dock_widget)
         self.dock_widget.hide()
 
@@ -86,12 +99,32 @@ class FlagViewerPlugin:
             self._auto_detect_all_layers()
             self.map_tool = FlagIdentifyMapTool(canvas)
             self.map_tool.positionChanged.connect(self.dock_widget.update_position)
+            self.map_tool.lockChanged.connect(self._on_lock_changed)
             canvas.setMapTool(self.map_tool)
             self.dock_widget.show()
         else:
             if self.map_tool is not None:
                 canvas.unsetMapTool(self.map_tool)
             self.dock_widget.hide()
+
+    def _set_map_tool_locked(self, locked):
+        if self.map_tool is not None:
+            self.map_tool.set_locked(locked)
+
+    def _on_lock_changed(self, locked):
+        self.dock_widget.set_locked(locked)
+        self.lock_action.blockSignals(True)
+        self.lock_action.setChecked(locked)
+        self.lock_action.blockSignals(False)
+        self._update_lock_tooltip(locked)
+
+    def _update_lock_tooltip(self, locked):
+        if locked:
+            self.lock_action.setToolTip(
+                "Position locked. Click to unlock (or right-click the map, or press Escape)."
+            )
+        else:
+            self.lock_action.setToolTip("Click a location on the map to lock the reported position.")
 
     def _auto_detect_all_layers(self):
         for layer in QgsProject.instance().mapLayers().values():

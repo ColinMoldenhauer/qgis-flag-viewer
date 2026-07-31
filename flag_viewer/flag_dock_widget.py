@@ -3,9 +3,12 @@ layer under the cursor, one row per (layer, band) or (layer, dataset group).
 """
 import math
 
+from qgis.PyQt.QtCore import QSettings
 from qgis.PyQt.QtWidgets import (
+    QComboBox,
     QDockWidget,
     QHeaderView,
+    QLabel,
     QTableWidget,
     QTableWidgetItem,
     QToolBar,
@@ -22,14 +25,34 @@ class FlagViewerDockWidget(QDockWidget):
     COLUMNS_CATEGORIZED = ("Layer", "Band/Group", "Value", "Meaning")
     COLUMNS_BITMASK = ("Layer", "Band/Group", "Value", "Bit(s)", "Meaning(s)")
 
+    TITLE = "Flag Viewer"
+
+    SCOPE_ALL = "all"
+    SCOPE_VISIBLE = "visible"
+    SCOPE_SELECTED = "selected"
+    SCOPE_SETTINGS_KEY = "FlagViewer/layer_scope"
+
     def __init__(self, iface, parent=None):
-        super().__init__("Flag Viewer", parent)
+        super().__init__(self.TITLE, parent)
         self.iface = iface
         self._mappings = {}  # layer id -> FlagDefinition
+        self._last_map_point = None
 
         container = QWidget()
         layout = QVBoxLayout(container)
         self.toolbar = QToolBar(container)
+        # Not added to the toolbar here: the plugin appends these after its
+        # own actions, so the combo ends up to the right of Load/Edit/Clear/Lock.
+        self.layer_scope_label = QLabel("Layers: ")
+        self.layer_scope_combo = QComboBox(container)
+        self.layer_scope_combo.setToolTip("Which layers to sample under the cursor")
+        self.layer_scope_combo.addItem("All", self.SCOPE_ALL)
+        self.layer_scope_combo.addItem("Visible", self.SCOPE_VISIBLE)
+        self.layer_scope_combo.addItem("Selected", self.SCOPE_SELECTED)
+        saved_scope = QSettings().value(self.SCOPE_SETTINGS_KEY, self.SCOPE_ALL)
+        index = self.layer_scope_combo.findData(saved_scope)
+        self.layer_scope_combo.setCurrentIndex(index if index >= 0 else 0)
+        self.layer_scope_combo.currentIndexChanged.connect(self._on_layer_scope_changed)
         layout.addWidget(self.toolbar)
         self.table = QTableWidget(0, len(self.COLUMNS_CATEGORIZED))
         self.table.setHorizontalHeaderLabels(self.COLUMNS_CATEGORIZED)
@@ -60,10 +83,15 @@ class FlagViewerDockWidget(QDockWidget):
         self._mappings.pop(layer.id(), None)
         clear_mapping_on_layer(layer)
 
+    def set_locked(self, locked):
+        """Reflect the map tool's lock state in the dock's title bar."""
+        self.setWindowTitle(f"{self.TITLE} (locked)" if locked else self.TITLE)
+
     def update_position(self, map_point):
+        self._last_map_point = map_point
         rows = []
         canvas_temporal_range = self.iface.mapCanvas().temporalRange()
-        for layer in QgsProject.instance().mapLayers().values():
+        for layer in self._layers_in_scope():
             if not layer.isValid() or not layer.extent().contains(map_point):
                 continue
             if isinstance(layer, QgsRasterLayer):
@@ -71,6 +99,25 @@ class FlagViewerDockWidget(QDockWidget):
             elif isinstance(layer, QgsMeshLayer):
                 rows.extend(self._mesh_rows(layer, map_point, canvas_temporal_range))
         self._populate(rows)
+
+    def _on_layer_scope_changed(self, _index):
+        QSettings().setValue(self.SCOPE_SETTINGS_KEY, self.layer_scope_combo.currentData())
+        if self._last_map_point is not None:
+            self.update_position(self._last_map_point)
+
+    def _layers_in_scope(self):
+        scope = self.layer_scope_combo.currentData()
+        if scope == self.SCOPE_SELECTED:
+            return self.iface.layerTreeView().selectedLayers()
+        if scope == self.SCOPE_VISIBLE:
+            root = QgsProject.instance().layerTreeRoot()
+            layers = []
+            for layer in QgsProject.instance().mapLayers().values():
+                node = root.findLayer(layer.id())
+                if node is not None and node.isVisible():
+                    layers.append(layer)
+            return layers
+        return QgsProject.instance().mapLayers().values()
 
     def _raster_rows(self, layer, map_point):
         provider = layer.dataProvider()

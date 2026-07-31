@@ -96,6 +96,12 @@ is shown via the toggle).
 Load/Edit/Clear all act on the current `activeLayer()` — select a raster
 layer first, or the plugin shows a warning asking you to.
 
+A **Layers** dropdown in the dock widget's toolbar controls which layers are
+sampled under the cursor: **All** (every layer in the project, the default),
+**Visible** (layers currently checked on in the Layers panel), or **Selected**
+(layers currently highlighted in the Layers panel). The choice is remembered
+across QGIS sessions.
+
 ## Running the tests
 
 ```
