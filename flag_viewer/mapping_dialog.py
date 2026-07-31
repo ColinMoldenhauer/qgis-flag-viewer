@@ -12,6 +12,7 @@ from qgis.PyQt.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QHBoxLayout,
+    QLabel,
     QMessageBox,
     QPushButton,
     QRadioButton,
@@ -25,12 +26,18 @@ from .core.mapping_io import save_mapping
 
 
 class MappingDialog(QDialog):
-    def __init__(self, definition=None, parent=None):
+    def __init__(self, definition=None, parent=None, layer_name=None):
         super().__init__(parent)
-        self.setWindowTitle("Edit Flag Mapping")
+        title = "Edit Flag Mapping"
+        if layer_name:
+            title = f"{title} – {layer_name}"
+        self.setWindowTitle(title)
         self.resize(420, 360)
 
         layout = QVBoxLayout(self)
+
+        if layer_name:
+            layout.addWidget(QLabel(f"Layer: <b>{layer_name}</b>"))
 
         mode_row = QHBoxLayout()
         self.categorized_radio = QRadioButton("Categorized (one value = one meaning)")

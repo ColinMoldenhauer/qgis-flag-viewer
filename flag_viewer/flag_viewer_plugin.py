@@ -130,7 +130,7 @@ class FlagViewerPlugin:
             QMessageBox.warning(self.iface.mainWindow(), MENU_NAME, "Select a raster layer first.")
             return
         existing = self.dock_widget.mapping_for(layer.id())
-        dialog = MappingDialog(existing, parent=self.iface.mainWindow())
+        dialog = MappingDialog(existing, parent=self.iface.mainWindow(), layer_name=layer.name())
         if dialog.exec_():
             definition = dialog.to_definition()
             if definition is not None:
