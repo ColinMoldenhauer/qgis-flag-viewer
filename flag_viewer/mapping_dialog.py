@@ -25,6 +25,19 @@ from .core.flag_decoder import FlagDefinition
 from .core.mapping_io import save_mapping
 
 
+def _mask_to_bit_index(mask):
+    """Inverse of the dialog's ``1 << index`` bit-index-to-mask conversion.
+
+    Falls back to showing the raw mask value for masks that aren't a single
+    bit (e.g. combined multi-bit fields loaded from a hand-written sidecar
+    file) since those can't be expressed as one index -- editing and saving
+    such a row here would need to be re-entered by hand anyway.
+    """
+    if mask > 0 and mask & (mask - 1) == 0:
+        return mask.bit_length() - 1
+    return mask
+
+
 class MappingDialog(QDialog):
     def __init__(self, definition=None, parent=None, layer_name=None):
         super().__init__(parent)
@@ -48,8 +61,9 @@ class MappingDialog(QDialog):
         self.bitmask_radio = QRadioButton("Bitmask (each bit = one meaning)")
         self.bitmask_radio.setToolTip(
             "The field is a set of independent on/off flags packed into one "
-            "integer. Each row's number is a single bit (1, 2, 4, 8, ...) and "
-            "several bits can be set at once, e.g. 5 = bit 1 + bit 4."
+            "integer. Each row's number is the bit's index (0, 1, 2, ...), not "
+            "its value: bit 0 = 1, bit 1 = 2, bit 2 = 4, and so on. Several "
+            "bits can be set at once, e.g. a value of 5 has bit 0 and bit 2 set."
         )
         self.categorized_radio.setChecked(True)
         mode_group = QButtonGroup(self)
@@ -79,14 +93,17 @@ class MappingDialog(QDialog):
         layout.addWidget(save_button)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self.accept)
+        buttons.accepted.connect(self._validate_and_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
         if definition is not None:
             self.bitmask_radio.setChecked(definition.masks is not None)
             self.categorized_radio.setChecked(definition.masks is None)
-            numbers = definition.masks if definition.masks else definition.values
+            if definition.masks:
+                numbers = [_mask_to_bit_index(mask) for mask in definition.masks]
+            else:
+                numbers = definition.values
             for value, meaning in zip(numbers, definition.meanings):
                 self._add_row(value, meaning)
 
@@ -116,8 +133,25 @@ class MappingDialog(QDialog):
         if not numbers:
             return None
         if self.bitmask_radio.isChecked():
-            return FlagDefinition(meanings=meanings, masks=numbers)
+            return FlagDefinition(meanings=meanings, masks=[1 << n for n in numbers])
         return FlagDefinition(meanings=meanings, values=numbers)
+
+    def _validate_and_accept(self):
+        if self.bitmask_radio.isChecked():
+            for row in range(self.table.rowCount()):
+                value_item = self.table.item(row, 0)
+                text = value_item.text().strip() if value_item else ""
+                if not text:
+                    continue
+                if int(text, 0) < 0:
+                    QMessageBox.warning(
+                        self,
+                        "Flag Viewer",
+                        "Bit index must be 0 or greater (0 = value 1, 1 = value 2, "
+                        "2 = value 4, ...).",
+                    )
+                    return
+        self.accept()
 
     def _save_to_file(self):
         definition = self.to_definition()
