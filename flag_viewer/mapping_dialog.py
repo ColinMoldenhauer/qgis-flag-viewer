@@ -60,10 +60,12 @@ class MappingDialog(QDialog):
         )
         self.bitmask_radio = QRadioButton("Bitmask (each bit = one meaning)")
         self.bitmask_radio.setToolTip(
-            "The field is a set of independent on/off flags packed into one "
-            "integer. Each row's number is the bit's index (0, 1, 2, ...), not "
-            "its value: bit 0 = 1, bit 1 = 2, bit 2 = 4, and so on. Several "
-            "bits can be set at once, e.g. a value of 5 has bit 0 and bit 2 set."
+            "<p>The field is a set of independent on/off flags packed into "
+            "one integer.</p>"
+            "<p>Each row's number is the bit's index (0, 1, 2, ...), not its "
+            "value: bit 0 = 1, bit 1 = 2, bit 2 = 4, and so on.</p>"
+            "<p>Several bits can be set at once, e.g. a value of 5 has bit 0 "
+            "and bit 2 set.</p>"
         )
         self.categorized_radio.setChecked(True)
         mode_group = QButtonGroup(self)
