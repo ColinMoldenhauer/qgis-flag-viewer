@@ -1,6 +1,8 @@
-"""Dock widget showing the decoded flag meaning(s) for every raster layer
-under the cursor, one row per (layer, band).
+"""Dock widget showing the decoded flag meaning(s) for every raster/mesh
+layer under the cursor, one row per (layer, band) or (layer, dataset group).
 """
+import math
+
 from qgis.PyQt.QtWidgets import (
     QDockWidget,
     QHeaderView,
@@ -10,15 +12,15 @@ from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from qgis.core import QgsProject, QgsRasterLayer
+from qgis.core import QgsMeshDatasetIndex, QgsMeshLayer, QgsProject, QgsRasterLayer
 
 from .core.flag_decoder import FlagMode
 from .core.layer_property import clear_mapping_on_layer, save_mapping_to_layer
 
 
 class FlagViewerDockWidget(QDockWidget):
-    COLUMNS_CATEGORIZED = ("Layer", "Band", "Value", "Meaning")
-    COLUMNS_BITMASK = ("Layer", "Band", "Value", "Bit(s)", "Meaning(s)")
+    COLUMNS_CATEGORIZED = ("Layer", "Band/Group", "Value", "Meaning")
+    COLUMNS_BITMASK = ("Layer", "Band/Group", "Value", "Bit(s)", "Meaning(s)")
 
     def __init__(self, iface, parent=None):
         super().__init__("Flag Viewer", parent)
@@ -60,29 +62,59 @@ class FlagViewerDockWidget(QDockWidget):
 
     def update_position(self, map_point):
         rows = []
+        canvas_temporal_range = self.iface.mapCanvas().temporalRange()
         for layer in QgsProject.instance().mapLayers().values():
-            if not isinstance(layer, QgsRasterLayer) or not layer.isValid():
+            if not layer.isValid() or not layer.extent().contains(map_point):
                 continue
-            if not layer.extent().contains(map_point):
-                continue
-
-            provider = layer.dataProvider()
-            definition = self._mappings.get(layer.id())
-            for band in range(1, layer.bandCount() + 1):
-                sample, ok = provider.sample(map_point, band)
-                if not ok:
-                    continue
-                if definition is not None:
-                    hits = definition.decode_detailed(sample)
-                    meaning_text = ", ".join(meaning for _, meaning in hits) if hits else "(no match)"
-                    is_bitmask = definition.mode is FlagMode.BITMASK
-                    bits_text = ", ".join(str(bit) for bit, _ in hits) if is_bitmask else ""
-                else:
-                    meaning_text = "(no mapping - see Flag Viewer > Load/Edit Mapping)"
-                    is_bitmask = False
-                    bits_text = ""
-                rows.append((layer.name(), str(band), str(sample), bits_text, meaning_text, is_bitmask))
+            if isinstance(layer, QgsRasterLayer):
+                rows.extend(self._raster_rows(layer, map_point))
+            elif isinstance(layer, QgsMeshLayer):
+                rows.extend(self._mesh_rows(layer, map_point, canvas_temporal_range))
         self._populate(rows)
+
+    def _raster_rows(self, layer, map_point):
+        provider = layer.dataProvider()
+        definition = self._mappings.get(layer.id())
+        rows = []
+        for band in range(1, layer.bandCount() + 1):
+            sample, ok = provider.sample(map_point, band)
+            if not ok:
+                continue
+            rows.append(self._build_row(layer.name(), str(band), sample, definition))
+        return rows
+
+    def _mesh_rows(self, layer, map_point, canvas_temporal_range):
+        provider = layer.dataProvider()
+        definition = self._mappings.get(layer.id())
+        rows = []
+        for group in range(provider.datasetGroupCount()):
+            group_meta = provider.datasetGroupMetadata(group)
+            if not group_meta.isScalar():
+                continue  # flag decoding doesn't apply to vector (x/y) datasets
+            if group_meta.isTemporal():
+                dataset_index = layer.datasetIndexAtTime(canvas_temporal_range, group)
+            else:
+                dataset_index = QgsMeshDatasetIndex(group, 0)
+            if not dataset_index.isValid():
+                continue
+            sample = layer.datasetValue(dataset_index, map_point).scalar()
+            if math.isnan(sample):
+                continue  # outside the mesh domain or an inactive/dry element
+            group_label = group_meta.name() or f"Group {group}"
+            rows.append(self._build_row(layer.name(), group_label, sample, definition))
+        return rows
+
+    def _build_row(self, layer_name, band_label, sample, definition):
+        if definition is not None:
+            hits = definition.decode_detailed(sample)
+            meaning_text = ", ".join(meaning for _, meaning in hits) if hits else "(no match)"
+            is_bitmask = definition.mode is FlagMode.BITMASK
+            bits_text = ", ".join(str(bit) for bit, _ in hits) if is_bitmask else ""
+        else:
+            meaning_text = "(no mapping - see Flag Viewer > Load/Edit Mapping)"
+            is_bitmask = False
+            bits_text = ""
+        return (layer_name, band_label, str(sample), bits_text, meaning_text, is_bitmask)
 
     def _populate(self, rows):
         show_bits = any(is_bitmask for *_, is_bitmask in rows)
