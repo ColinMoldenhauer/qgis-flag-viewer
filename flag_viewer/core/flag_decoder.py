@@ -58,6 +58,11 @@ class FlagDefinition:
         Categorized mode returns at most one meaning. Bitmask mode may
         return several (or none, if no bit matches a known mask).
         """
+        return [meaning for _, meaning in self.decode_detailed(value)]
+
+    def decode_detailed(self, value) -> list:
+        """Like :meth:`decode`, but pairs each meaning with the mask (bitmask
+        mode) or value (categorized mode) that matched it."""
         if value is None:
             return []
         value = int(value)
@@ -68,12 +73,12 @@ class FlagDefinition:
                 bits = value & mask
                 match = bits == self.values[i] if self.values else bits != 0
                 if match:
-                    hits.append(self.meanings[i])
+                    hits.append((mask, self.meanings[i]))
             return hits
 
         for meaning, flag_value in zip(self.meanings, self.values):
             if value == flag_value:
-                return [meaning]
+                return [(flag_value, meaning)]
         return []
 
 

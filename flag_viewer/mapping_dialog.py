@@ -34,7 +34,16 @@ class MappingDialog(QDialog):
 
         mode_row = QHBoxLayout()
         self.categorized_radio = QRadioButton("Categorized (one value = one meaning)")
+        self.categorized_radio.setToolTip(
+            "Each field value maps to exactly one meaning, e.g. 0 = \"Draft\", "
+            "1 = \"Published\", 2 = \"Archived\"."
+        )
         self.bitmask_radio = QRadioButton("Bitmask (each bit = one meaning)")
+        self.bitmask_radio.setToolTip(
+            "The field is a set of independent on/off flags packed into one "
+            "integer. Each row's number is a single bit (1, 2, 4, 8, ...) and "
+            "several bits can be set at once, e.g. 5 = bit 1 + bit 4."
+        )
         self.categorized_radio.setChecked(True)
         mode_group = QButtonGroup(self)
         mode_group.addButton(self.categorized_radio)
@@ -44,8 +53,10 @@ class MappingDialog(QDialog):
         layout.addLayout(mode_row)
 
         self.table = QTableWidget(0, 2)
-        self.table.setHorizontalHeaderLabels(["Value / Mask", "Meaning"])
+        self._update_value_column_header()
         layout.addWidget(self.table)
+
+        self.categorized_radio.toggled.connect(self._update_value_column_header)
 
         row_buttons = QHBoxLayout()
         add_button = QPushButton("Add row")
@@ -71,6 +82,10 @@ class MappingDialog(QDialog):
             numbers = definition.masks if definition.masks else definition.values
             for value, meaning in zip(numbers, definition.meanings):
                 self._add_row(value, meaning)
+
+    def _update_value_column_header(self):
+        label = "Value" if self.categorized_radio.isChecked() else "Bit"
+        self.table.setHorizontalHeaderLabels([label, "Meaning"])
 
     def _add_row(self, value="", meaning=""):
         row = self.table.rowCount()
