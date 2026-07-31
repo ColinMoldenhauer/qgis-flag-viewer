@@ -6,6 +6,7 @@ from qgis.PyQt.QtWidgets import (
     QHeaderView,
     QTableWidget,
     QTableWidgetItem,
+    QToolBar,
     QVBoxLayout,
     QWidget,
 )
@@ -24,6 +25,8 @@ class FlagViewerDockWidget(QDockWidget):
 
         container = QWidget()
         layout = QVBoxLayout(container)
+        self.toolbar = QToolBar(container)
+        layout.addWidget(self.toolbar)
         self.table = QTableWidget(0, len(self.COLUMNS))
         self.table.setHorizontalHeaderLabels(self.COLUMNS)
         header = self.table.horizontalHeader()

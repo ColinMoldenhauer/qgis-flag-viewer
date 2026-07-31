@@ -27,28 +27,38 @@ class FlagViewerPlugin:
         self.edit_mapping_action = None
         self.clear_mapping_action = None
 
-    def initGui(self):
-        icon = QIcon(os.path.join(self.plugin_dir, "resources", "icon.svg"))
+    def _icon(self, name):
+        return QIcon(os.path.join(self.plugin_dir, "resources", name))
 
-        self.toggle_action = QAction(icon, "Flag Viewer", self.iface.mainWindow())
+    def initGui(self):
+        self.toggle_action = QAction(self._icon("icon.svg"), "Flag Viewer", self.iface.mainWindow())
         self.toggle_action.setCheckable(True)
         self.toggle_action.triggered.connect(self.toggle)
         self.iface.addToolBarIcon(self.toggle_action)
         self.iface.addPluginToRasterMenu(MENU_NAME, self.toggle_action)
 
-        self.load_mapping_action = QAction("Load Flag Mapping...", self.iface.mainWindow())
+        self.load_mapping_action = QAction(
+            self._icon("load_mapping.svg"), "Load Flag Mapping...", self.iface.mainWindow()
+        )
         self.load_mapping_action.triggered.connect(self.load_mapping_for_active_layer)
         self.iface.addPluginToRasterMenu(MENU_NAME, self.load_mapping_action)
 
-        self.edit_mapping_action = QAction("Edit Flag Mapping...", self.iface.mainWindow())
+        self.edit_mapping_action = QAction(
+            self._icon("edit_mapping.svg"), "Edit Flag Mapping...", self.iface.mainWindow()
+        )
         self.edit_mapping_action.triggered.connect(self.edit_mapping_for_active_layer)
         self.iface.addPluginToRasterMenu(MENU_NAME, self.edit_mapping_action)
 
-        self.clear_mapping_action = QAction("Clear Flag Mapping", self.iface.mainWindow())
+        self.clear_mapping_action = QAction(
+            self._icon("clear_mapping.svg"), "Clear Flag Mapping", self.iface.mainWindow()
+        )
         self.clear_mapping_action.triggered.connect(self.clear_mapping_for_active_layer)
         self.iface.addPluginToRasterMenu(MENU_NAME, self.clear_mapping_action)
 
         self.dock_widget = FlagViewerDockWidget(self.iface)
+        self.dock_widget.toolbar.addAction(self.load_mapping_action)
+        self.dock_widget.toolbar.addAction(self.edit_mapping_action)
+        self.dock_widget.toolbar.addAction(self.clear_mapping_action)
         self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dock_widget)
         self.dock_widget.hide()
 
