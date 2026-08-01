@@ -16,6 +16,9 @@ resources_rc.py
 /dist/
 *.zip
 
+# GDAL/QGIS auto-generated raster statistics cache, regenerated on open
+*.aux.xml
+
 # Local Claude Code harness state, not project content
 /.claude/
 
@@ -23,3 +26,6 @@ resources_rc.py
 /DESIGN.md
 /TODO.md
 /INFO.md
+
+# Local-only sample data, not published to the repo
+/sample_data/
