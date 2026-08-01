@@ -3,12 +3,13 @@ layer under the cursor, one row per (layer, band) or (layer, dataset group).
 """
 import math
 
-from qgis.PyQt.QtCore import QSettings
+from qgis.PyQt.QtCore import QSettings, Qt
 from qgis.PyQt.QtWidgets import (
     QComboBox,
     QDockWidget,
     QHeaderView,
     QLabel,
+    QMenu,
     QTableWidget,
     QTableWidgetItem,
     QToolBar,
@@ -22,8 +23,35 @@ from .core.layer_property import clear_mapping_on_layer, save_mapping_to_layer
 
 
 class FlagViewerDockWidget(QDockWidget):
-    COLUMNS_CATEGORIZED = ("Layer", "Band/Group", "Value", "Meaning")
-    COLUMNS_BITMASK = ("Layer", "Band/Group", "Value", "Bit(s)", "Meaning(s)")
+    # (key, label) pairs, keyed on a stable identifier rather than the
+    # label alone: "Meaning" (categorized) and "Meaning(s)" (bitmask) are
+    # the same logical column shown under different names depending on
+    # what's under the cursor, and a hide/show choice needs to survive
+    # that mode switch instead of resetting.
+    COLUMN_DEFS_CATEGORIZED = (
+        ("layer", "Layer"),
+        ("band_group", "Band/Group"),
+        ("value", "Value"),
+        ("meaning", "Meaning"),
+    )
+    COLUMN_DEFS_BITMASK = (
+        ("layer", "Layer"),
+        ("band_group", "Band/Group"),
+        ("value", "Value"),
+        ("bits", "Bit(s)"),
+        ("meaning", "Meaning(s)"),
+    )
+    # Every column that can ever appear, for a header context menu that
+    # offers the full set regardless of which mode happens to be showing
+    # right now (e.g. so "Bit(s)" can be re-enabled even while the cursor
+    # is over non-bitmask data and that column isn't currently on screen).
+    COLUMN_MENU_LABELS = {
+        "layer": "Layer",
+        "band_group": "Band/Group",
+        "value": "Value",
+        "bits": "Bit(s)",
+        "meaning": "Meaning",
+    }
 
     TITLE = "Flag Viewer"
 
@@ -31,12 +59,16 @@ class FlagViewerDockWidget(QDockWidget):
     SCOPE_VISIBLE = "visible"
     SCOPE_SELECTED = "selected"
     SCOPE_SETTINGS_KEY = "FlagViewer/layer_scope"
+    HIDDEN_COLUMNS_SETTINGS_KEY = "FlagViewer/hidden_columns"
 
     def __init__(self, iface, parent=None):
         super().__init__(self.TITLE, parent)
         self.iface = iface
         self._mappings = {}  # layer id -> FlagDefinition
         self._last_map_point = None
+        self._column_keys = []  # key per current column index, set by _set_header_columns
+        saved_hidden = QSettings().value(self.HIDDEN_COLUMNS_SETTINGS_KEY, "")
+        self._hidden_columns = set(filter(None, saved_hidden.split(",")))
 
         container = QWidget()
         layout = QVBoxLayout(container)
@@ -54,12 +86,14 @@ class FlagViewerDockWidget(QDockWidget):
         self.layer_scope_combo.setCurrentIndex(index if index >= 0 else 0)
         self.layer_scope_combo.currentIndexChanged.connect(self._on_layer_scope_changed)
         layout.addWidget(self.toolbar)
-        self.table = QTableWidget(0, len(self.COLUMNS_CATEGORIZED))
-        self.table.setHorizontalHeaderLabels(self.COLUMNS_CATEGORIZED)
+        self.table = QTableWidget(0, len(self.COLUMN_DEFS_CATEGORIZED))
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Interactive)
         header.setStretchLastSection(True)
+        header.setContextMenuPolicy(Qt.CustomContextMenu)
+        header.customContextMenuRequested.connect(self._show_header_context_menu)
         self.table.verticalHeader().setVisible(False)
+        self._set_header_columns(self.COLUMN_DEFS_CATEGORIZED)
         layout.addWidget(self.table)
         self.setWidget(container)
 
@@ -163,11 +197,47 @@ class FlagViewerDockWidget(QDockWidget):
             bits_text = ""
         return (layer_name, band_label, str(sample), bits_text, meaning_text, is_bitmask)
 
+    def _show_header_context_menu(self, pos):
+        header = self.table.horizontalHeader()
+        visible_count = sum(1 for key in self._column_keys if key not in self._hidden_columns)
+        menu = QMenu(self.table)
+        for key in self.COLUMN_MENU_LABELS:
+            hidden = key in self._hidden_columns
+            action = menu.addAction(self.COLUMN_MENU_LABELS[key])
+            action.setCheckable(True)
+            action.setChecked(not hidden)
+            # Keep at least one currently-shown column visible so the table
+            # never goes empty; a column not shown right now (e.g. "Bit(s)"
+            # while looking at non-bitmask data) is always safe to toggle.
+            shown_now = key in self._column_keys
+            action.setEnabled(hidden or not shown_now or visible_count > 1)
+            action.toggled.connect(
+                lambda checked, key=key: self._set_column_hidden(key, not checked)
+            )
+        menu.exec_(header.mapToGlobal(pos))
+
+    def _set_column_hidden(self, column_key, hidden):
+        if hidden:
+            self._hidden_columns.add(column_key)
+        else:
+            self._hidden_columns.discard(column_key)
+        QSettings().setValue(self.HIDDEN_COLUMNS_SETTINGS_KEY, ",".join(sorted(self._hidden_columns)))
+        self._apply_column_visibility()
+
+    def _apply_column_visibility(self):
+        header = self.table.horizontalHeader()
+        for column_index, key in enumerate(self._column_keys):
+            header.setSectionHidden(column_index, key in self._hidden_columns)
+
+    def _set_header_columns(self, column_defs):
+        self._column_keys = [key for key, _label in column_defs]
+        self.table.setColumnCount(len(column_defs))
+        self.table.setHorizontalHeaderLabels([label for _key, label in column_defs])
+        self._apply_column_visibility()
+
     def _populate(self, rows):
         show_bits = any(is_bitmask for *_, is_bitmask in rows)
-        columns = self.COLUMNS_BITMASK if show_bits else self.COLUMNS_CATEGORIZED
-        self.table.setColumnCount(len(columns))
-        self.table.setHorizontalHeaderLabels(columns)
+        self._set_header_columns(self.COLUMN_DEFS_BITMASK if show_bits else self.COLUMN_DEFS_CATEGORIZED)
 
         self.table.setRowCount(len(rows))
         for row_index, (layer_name, band, value, bits_text, meaning_text, _) in enumerate(rows):
