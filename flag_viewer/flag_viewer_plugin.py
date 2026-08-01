@@ -6,7 +6,7 @@ from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox, QSizePolicy, QWidget
 from qgis.core import QgsMeshLayer, QgsProject, QgsRasterLayer
 
-from .core.cf_metadata import detect_from_band_metadata, detect_from_raster_path
+from .core.cf_metadata import detect_from_band_metadata, detect_from_raster_path, get_band_metadata
 from .core.layer_property import load_mapping_from_layer
 from .core.mapping_io import load_mapping
 from .flag_dock_widget import FlagViewerDockWidget
@@ -189,11 +189,45 @@ class FlagViewerPlugin:
             QMessageBox.warning(self.iface.mainWindow(), MENU_NAME, "Select a raster or mesh layer first.")
             return
         existing = self.dock_widget.mapping_for(layer.id())
-        dialog = MappingDialog(existing, parent=self.iface.mainWindow(), layer_name=layer.name())
+        metadata_sources = self._metadata_sources_for(layer)
+        dialog = MappingDialog(
+            existing,
+            parent=self.iface.mainWindow(),
+            layer_name=layer.name(),
+            metadata_sources=metadata_sources,
+        )
         if dialog.exec_():
             definition = dialog.to_definition()
             if definition is not None:
                 self.dock_widget.set_mapping(layer, definition)
+
+    def _metadata_sources_for(self, layer):
+        """Build {band/group label -> raw metadata dict} for the "From
+        metadata..." picker in MappingDialog, covering every band/group so
+        multi-band rasters and multi-variable mesh files can pick the right
+        one instead of being limited to what auto-detection already tried.
+        """
+        sources = {}
+        if isinstance(layer, QgsRasterLayer):
+            for band in range(1, layer.bandCount() + 1):
+                metadata = get_band_metadata(layer.source(), band_no=band)
+                if metadata:
+                    sources[f"Band {band}"] = metadata
+        elif isinstance(layer, QgsMeshLayer):
+            provider = layer.dataProvider()
+            for group in range(provider.datasetGroupCount()):
+                group_meta = provider.datasetGroupMetadata(group)
+                if not group_meta.isScalar():
+                    continue  # flag decoding doesn't apply to vector (x/y) datasets
+                # Unlike _auto_detect_mesh_layer's fallback (which only reads
+                # the GDAL band when extraOptions() has no flag_* keys), here
+                # we merge both so the picker shows the fullest possible set
+                # of attributes to choose from, whatever the mesh backend.
+                metadata = dict(get_band_metadata(layer.source(), band_no=group + 1))
+                metadata.update(group_meta.extraOptions())
+                if metadata:
+                    sources[group_meta.name() or f"Group {group}"] = metadata
+        return sources
 
     def clear_mapping_for_active_layer(self):
         layer = self.iface.activeLayer()

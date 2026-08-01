@@ -40,15 +40,25 @@ def detect_from_raster_path(path: str, band_no: int = 1) -> Optional[FlagDefinit
     the given band. Returns None if GDAL is unavailable, the file can't be
     opened, or no flag_meanings attribute is present.
     """
+    return detect_from_band_metadata(get_band_metadata(path, band_no))
+
+
+def get_band_metadata(path: str, band_no: int = 1) -> dict:
+    """Open ``path`` with GDAL and return the raw metadata dict for the
+    given band, e.g. for a "pick fields from metadata" UI where the caller
+    wants to browse all attributes rather than only the recognized CF
+    names. Empty if GDAL is unavailable, the file can't be opened, or the
+    band doesn't exist.
+    """
     try:
         from osgeo import gdal
     except ImportError:
-        return None
+        return {}
 
     dataset = gdal.Open(path)
     if dataset is None:
-        return None
+        return {}
     band = dataset.GetRasterBand(band_no)
     if band is None:
-        return None
-    return detect_from_band_metadata(band.GetMetadata())
+        return {}
+    return band.GetMetadata() or {}
