@@ -5,9 +5,11 @@ like [Value Tool](https://github.com/jorgealmerio/valuetool) — but decodes
 it into its [CF `flag_meanings`](https://cfconventions.org/cf-conventions/cf-conventions.html#flags)
 instead of showing the raw digital number.
 
-Status: **early draft / untested in a live QGIS session.** The core
-decoding logic is unit tested and dependency-free; the QGIS-facing widget
-code follows standard plugin patterns but hasn't been run inside QGIS yet.
+Status: **verified in a live QGIS session, not yet published.** The core
+decoding logic is unit tested and dependency-free; auto-detection, manual
+mapping load/edit, and the dock widget have all been exercised end-to-end
+in QGIS. Marked `experimental=True` in `metadata.txt` pending its first
+release.
 
 ## Layout
 
@@ -134,39 +136,3 @@ they run in a plain Python environment — no QGIS install required.
 No data handy? [sample_data/](sample_data/) has four tiny 4x4 rasters
 (2 GeoTIFF, 2 NetCDF) covering both flag modes and both the auto-detect
 and manual-mapping paths — see [sample_data/README.md](sample_data/README.md).
-
-Not yet verified end-to-end in a running QGIS instance — treat this as a
-first pass to react to and iterate on, not a finished plugin.
-
-## Roadmap to the official QGIS plugin repository
-
-Not submitted yet. Rough path to [plugins.qgis.org](https://plugins.qgis.org):
-
-1. **Verify in a live QGIS session** (see above) — auto-detection, manual
-   mapping load/edit, and the dock widget all need to actually work
-   before anything else matters.
-2. **Push this repo to its public GitHub home.** `metadata.txt` already
-   points at `github.com/ColinMoldenhauer/qgis-flag-viewer` (matching the
-   `origin` remote); the repo itself isn't public yet.
-3. **Package and validate** — done via [qgis-plugin-ci](https://github.com/qgis/qgis-plugin-ci)
-   (config in `pyproject.toml`'s `[tool.qgis-plugin-ci]`).
-   `.github/workflows/package.yml` runs on every push/PR and packages
-   `flag_viewer/` into a zip as a build check (nothing published);
-   `.github/workflows/release.yml` attaches that zip to a GitHub Release
-   once one is published. Publishing straight to plugins.qgis.org via the
-   same tool (`--osgeo-username`/`--osgeo-password`) is left commented out
-   in `release.yml` until after step 4 below.
-4. **Create a QGIS plugins.qgis.org account** and submit the zip through
-   the web form — this reads `metadata.txt` for the listing details. (Or,
-   once you have an OSGeo account, add `OSGEO_USER`/`OSGEO_PASSWORD` as
-   repo secrets and uncomment the publish step in `release.yml` to do
-   this automatically on release.)
-5. **Pass initial review**: first-time submissions are reviewed manually
-   by the QGIS plugin approval team (install/run sanity check, license
-   check, no obvious malicious/unsafe code) before appearing publicly.
-6. **Ship as `experimental=True`** (already set) for early users, then
-   flip to stable once it's proven itself across a few versions and
-   real-world rasters.
-7. **Iterate via version bumps**: each new `version` in `metadata.txt`,
-   tagged and released on GitHub, is what `release.yml` packages and
-   ships to users who already installed it.
