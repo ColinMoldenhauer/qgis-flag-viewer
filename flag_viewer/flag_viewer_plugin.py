@@ -36,29 +36,21 @@ class FlagViewerPlugin:
         self.toggle_action.setCheckable(True)
         self.toggle_action.triggered.connect(self.toggle)
         self.iface.addToolBarIcon(self.toggle_action)
-        self.iface.addPluginToRasterMenu(MENU_NAME, self.toggle_action)
-        self.iface.addPluginToMeshMenu(MENU_NAME, self.toggle_action)
 
         self.load_mapping_action = QAction(
             self._icon("load_mapping.svg"), "Load Flag Mapping...", self.iface.mainWindow()
         )
         self.load_mapping_action.triggered.connect(self.load_mapping_for_active_layer)
-        self.iface.addPluginToRasterMenu(MENU_NAME, self.load_mapping_action)
-        self.iface.addPluginToMeshMenu(MENU_NAME, self.load_mapping_action)
 
         self.edit_mapping_action = QAction(
             self._icon("edit_mapping.svg"), "Edit Flag Mapping...", self.iface.mainWindow()
         )
         self.edit_mapping_action.triggered.connect(self.edit_mapping_for_active_layer)
-        self.iface.addPluginToRasterMenu(MENU_NAME, self.edit_mapping_action)
-        self.iface.addPluginToMeshMenu(MENU_NAME, self.edit_mapping_action)
 
         self.clear_mapping_action = QAction(
             self._icon("clear_mapping.svg"), "Clear Flag Mapping", self.iface.mainWindow()
         )
         self.clear_mapping_action.triggered.connect(self.clear_mapping_for_active_layer)
-        self.iface.addPluginToRasterMenu(MENU_NAME, self.clear_mapping_action)
-        self.iface.addPluginToMeshMenu(MENU_NAME, self.clear_mapping_action)
 
         self.lock_action = QAction(self._icon("lock.svg"), "Lock Position", self.iface.mainWindow())
         self.lock_action.setCheckable(True)
@@ -81,14 +73,6 @@ class FlagViewerPlugin:
 
     def unload(self):
         self.iface.removeToolBarIcon(self.toggle_action)
-        self.iface.removePluginRasterMenu(MENU_NAME, self.toggle_action)
-        self.iface.removePluginRasterMenu(MENU_NAME, self.load_mapping_action)
-        self.iface.removePluginRasterMenu(MENU_NAME, self.edit_mapping_action)
-        self.iface.removePluginRasterMenu(MENU_NAME, self.clear_mapping_action)
-        self.iface.removePluginMeshMenu(MENU_NAME, self.toggle_action)
-        self.iface.removePluginMeshMenu(MENU_NAME, self.load_mapping_action)
-        self.iface.removePluginMeshMenu(MENU_NAME, self.edit_mapping_action)
-        self.iface.removePluginMeshMenu(MENU_NAME, self.clear_mapping_action)
         if self.dock_widget is not None:
             self.iface.removeDockWidget(self.dock_widget)
         self.map_tool = None

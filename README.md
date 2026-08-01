@@ -81,17 +81,18 @@ the active layer.
 
 ## Plugin functionality
 
-All commands live under the **Raster > Flag Viewer** menu. The toggle also
-gets an icon on QGIS's Plugins toolbar; Load/Edit/Clear each get an icon
-inside the Flag Viewer dock widget's own toolbar (visible once the dock
-is shown via the toggle).
+The toggle gets an icon on QGIS's Plugins toolbar; that's the only entry
+point outside the dock widget itself — deliberately not also registered
+under the Raster/Mesh menus, to avoid cluttering those with per-plugin
+commands. Load/Edit/Clear/Lock each get an icon inside the Flag Viewer dock
+widget's own toolbar (visible once the dock is shown via the toggle).
 
 | Command | Path | What it does |
 |---|---|---|
-| Flag Viewer (toggle) | Plugins toolbar icon, or `Raster > Flag Viewer > Flag Viewer` | Turns hover-sampling on/off. On enable: auto-detects/loads a mapping for every raster layer in the project (skipping layers that already have one) and shows the dock widget reporting layer/band/value/meaning(s) under the cursor. On disable: hides the dock widget and disengages the map tool. |
-| Load Flag Mapping... | Icon in the dock widget toolbar, or `Raster > Flag Viewer > Load Flag Mapping...` | Loads a JSON/YAML sidecar mapping file for the active raster layer and stores it on the layer. |
-| Edit Flag Mapping... | Icon in the dock widget toolbar, or `Raster > Flag Viewer > Edit Flag Mapping...` | Opens the GUI table editor to build or modify a mapping for the active raster layer by hand; stores the result on the layer. |
-| Clear Flag Mapping | Icon in the dock widget toolbar, or `Raster > Flag Viewer > Clear Flag Mapping` | Removes the in-memory mapping and the stored custom property for the active raster layer. |
+| Flag Viewer (toggle) | Plugins toolbar icon | Turns hover-sampling on/off. On enable: auto-detects/loads a mapping for every raster layer in the project (skipping layers that already have one) and shows the dock widget reporting layer/band/value/meaning(s) under the cursor. On disable: hides the dock widget and disengages the map tool. |
+| Load Flag Mapping... | Icon in the dock widget toolbar | Loads a JSON/YAML sidecar mapping file for the active raster layer and stores it on the layer. |
+| Edit Flag Mapping... | Icon in the dock widget toolbar | Opens the GUI table editor to build or modify a mapping for the active raster layer by hand; stores the result on the layer. |
+| Clear Flag Mapping | Icon in the dock widget toolbar | Removes the in-memory mapping and the stored custom property for the active raster layer. |
 
 Load/Edit/Clear all act on the current `activeLayer()` — select a raster
 layer first, or the plugin shows a warning asking you to.
@@ -125,9 +126,7 @@ they run in a plain Python environment — no QGIS install required.
 4. Load a raster with CF flag attributes (e.g. a NetCDF/HDF5 file opened
    through GDAL), click the Flag Viewer toolbar icon, and move the mouse
    over the raster. If auto-detection doesn't find a mapping, use the
-   Load/Edit Flag Mapping icons in the dock widget's toolbar (or
-   `Raster > Flag Viewer > Load Flag Mapping...` / `Edit Flag Mapping...`)
-   — see
+   Load/Edit Flag Mapping icons in the dock widget's toolbar — see
    [Supported flag mapping sources](#supported-flag-mapping-sources) and
    [Plugin functionality](#plugin-functionality) above for what each
    command does.
