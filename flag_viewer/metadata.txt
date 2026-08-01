@@ -2,7 +2,7 @@
 name=Flag Viewer
 qgisMinimumVersion=3.28
 description=Shows the CF flag_meanings for the raster band or mesh dataset value under the cursor, like Value Tool but decoded.
-version=0.1.0
+version=0.1.1
 author=Colin Moldenhauer
 email=colin.moldenhauer@posteo.de
 

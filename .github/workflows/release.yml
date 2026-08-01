@@ -1,12 +1,13 @@
 name: Release
 
-# Fires when a GitHub Release is published (i.e. you tag a version and
-# publish a release from it), not on every push -- packaging/publishing a
-# plugin version is a one-way, user-visible action so it stays tied to an
-# explicit release, not automatic on push.
+# Fires on any pushed version tag. Packaging/publishing a plugin version
+# is a one-way, user-visible action, but a pushed tag is itself already
+# the deliberate "this version is confirmed ready" signal, so there's no
+# need for a separate publish-a-GitHub-Release step in between.
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*.*.*"
 
 jobs:
   release:
@@ -22,23 +23,23 @@ jobs:
       - name: Install qgis-plugin-ci
         run: pip install qgis-plugin-ci
 
-      # Builds the versioned zip and attaches it to the GitHub Release as
-      # a downloadable asset. GITHUB_TOKEN is provided automatically by
-      # Actions, no repo secret to configure.
-      - name: Package and attach zip to the GitHub release
+      # Builds the versioned zip, creates the GitHub Release for this tag,
+      # and attaches the zip as a downloadable asset. GITHUB_TOKEN is
+      # provided automatically by Actions, no repo secret to configure.
+      - name: Package and publish the GitHub release
         run: >-
-          qgis-plugin-ci release ${{ github.event.release.tag_name }}
+          qgis-plugin-ci release ${{ github.ref_name }}
           --github-token ${{ secrets.GITHUB_TOKEN }}
 
       # Publishing to the official plugins.qgis.org repository is a
-      # separate, one-way public action -- do the manual steps in
-      # README.md's "Roadmap to the official QGIS plugin repository"
-      # first (create a plugins.qgis.org account, pass initial review),
-      # add OSGEO_USER/OSGEO_PASSWORD as repo secrets, then uncomment:
+      # separate, one-way public action -- do the manual steps in the
+      # publishing checklist first (create a plugins.qgis.org account,
+      # pass initial review), add OSGEO_USER/OSGEO_PASSWORD as repo
+      # secrets, then uncomment:
       #
       # - name: Publish to plugins.qgis.org
       #   run: >-
-      #     qgis-plugin-ci release ${{ github.event.release.tag_name }}
+      #     qgis-plugin-ci release ${{ github.ref_name }}
       #     --github-token ${{ secrets.GITHUB_TOKEN }}
       #     --osgeo-username ${{ secrets.OSGEO_USER }}
       #     --osgeo-password ${{ secrets.OSGEO_PASSWORD }}
