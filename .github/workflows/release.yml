@@ -12,6 +12,8 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -23,10 +25,23 @@ jobs:
       - name: Install qgis-plugin-ci
         run: pip install qgis-plugin-ci
 
-      # Builds the versioned zip, creates the GitHub Release for this tag,
-      # and attaches the zip as a downloadable asset. GITHUB_TOKEN is
-      # provided automatically by Actions, no repo secret to configure.
-      - name: Package and publish the GitHub release
+      # qgis-plugin-ci's "release" command expects a GitHub Release to
+      # already exist for this tag (it 404s otherwise) -- it doesn't
+      # create one itself. Create it here so a tag push is still all it
+      # takes; skip if a release for this tag already exists (e.g. a
+      # re-run). GITHUB_TOKEN is provided automatically by Actions, no
+      # repo secret to configure.
+      - name: Ensure a GitHub release exists for this tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" >/dev/null 2>&1 ||
+          gh release create "${{ github.ref_name }}" --repo "${{ github.repository }}"
+          --title "${{ github.ref_name }}" --generate-notes
+
+      # Builds the versioned zip and attaches it to the release above as
+      # a downloadable asset.
+      - name: Package and attach zip to the GitHub release
         run: >-
           qgis-plugin-ci release ${{ github.ref_name }}
           --github-token ${{ secrets.GITHUB_TOKEN }}
