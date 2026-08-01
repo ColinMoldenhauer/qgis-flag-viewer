@@ -71,7 +71,10 @@ class FlagViewerPlugin:
         self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dock_widget)
         self.dock_widget.hide()
 
+        QgsProject.instance().layersAdded.connect(self._auto_detect_layers)
+
     def unload(self):
+        QgsProject.instance().layersAdded.disconnect(self._auto_detect_layers)
         self.iface.removeToolBarIcon(self.toggle_action)
         if self.dock_widget is not None:
             self.iface.removeDockWidget(self.dock_widget)
@@ -80,7 +83,7 @@ class FlagViewerPlugin:
     def toggle(self, checked):
         canvas = self.iface.mapCanvas()
         if checked:
-            self._auto_detect_all_layers()
+            self._auto_detect_layers(QgsProject.instance().mapLayers().values())
             self.map_tool = FlagIdentifyMapTool(canvas)
             self.map_tool.positionChanged.connect(self.dock_widget.update_position)
             self.map_tool.lockChanged.connect(self._on_lock_changed)
@@ -110,8 +113,8 @@ class FlagViewerPlugin:
         else:
             self.lock_action.setToolTip("Click a location on the map to lock the reported position.")
 
-    def _auto_detect_all_layers(self):
-        for layer in QgsProject.instance().mapLayers().values():
+    def _auto_detect_layers(self, layers):
+        for layer in layers:
             if isinstance(layer, QgsRasterLayer):
                 self._auto_detect_raster_layer(layer)
             elif isinstance(layer, QgsMeshLayer):
@@ -145,12 +148,20 @@ class FlagViewerPlugin:
             self.dock_widget.set_mapping(layer, definition, persist=False)
             return
 
-        # MDAL copies NetCDF/UGRID variable attributes into each dataset
-        # group's extra options the same way GDAL copies them into raster
-        # band metadata, so the CF flag_* detection logic applies unchanged.
+        # For genuine mesh formats (UGRID etc.), MDAL copies each dataset
+        # group's NetCDF variable attributes into its extra options, so the
+        # CF flag_* detection logic applies unchanged. But when a plain
+        # gridded NetCDF is loaded as a mesh, MDAL bridges it from the GDAL
+        # raster driver instead and that bridge drops custom attributes --
+        # extraOptions() ends up with only a "name" like "GDAL Band Number
+        # 1". In that case fall back to reading the flag_* attributes
+        # straight from the source file's matching GDAL raster band (group
+        # index and band number are 1:1 for this bridge).
         provider = layer.dataProvider()
         for group in range(provider.datasetGroupCount()):
             definition = detect_from_band_metadata(provider.datasetGroupMetadata(group).extraOptions())
+            if definition is None:
+                definition = detect_from_raster_path(layer.source(), band_no=group + 1)
             if definition is not None:
                 self.dock_widget.set_mapping(layer, definition, persist=False)
                 return
