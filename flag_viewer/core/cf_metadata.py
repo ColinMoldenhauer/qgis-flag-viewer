@@ -62,3 +62,24 @@ def get_band_metadata(path: str, band_no: int = 1) -> dict:
     if band is None:
         return {}
     return band.GetMetadata() or {}
+
+
+def band_is_integer_type(path: str, band_no: int = 1) -> Optional[bool]:
+    """Open ``path`` with GDAL and report whether the given band's data type
+    is an integer type (as opposed to floating point/complex). Returns None
+    if GDAL is unavailable, the file can't be opened, or the band doesn't
+    exist, i.e. "unknown" rather than "not integer".
+    """
+    try:
+        from osgeo import gdal
+    except ImportError:
+        return None
+
+    dataset = gdal.Open(path)
+    if dataset is None:
+        return None
+    band = dataset.GetRasterBand(band_no)
+    if band is None:
+        return None
+    type_name = gdal.GetDataTypeName(band.DataType)
+    return "Int" in type_name or type_name == "Byte"

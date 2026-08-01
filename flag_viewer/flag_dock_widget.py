@@ -16,10 +16,25 @@ from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from qgis.core import QgsMeshDatasetIndex, QgsMeshLayer, QgsProject, QgsRasterLayer
+from qgis.core import Qgis, QgsMeshDatasetIndex, QgsMeshLayer, QgsProject, QgsRasterLayer
 
+from .core.cf_metadata import band_is_integer_type
 from .core.flag_decoder import FlagMode
 from .core.layer_property import clear_mapping_on_layer, save_mapping_to_layer
+
+# QGIS always samples raster/mesh values as double regardless of the
+# underlying storage type, so displaying str(sample) directly would show
+# e.g. "3.0" for data that's actually integer. These are the Qgis.DataType
+# members that represent integer storage; look them up with getattr since
+# not all of them exist in every QGIS version.
+_INTEGER_RASTER_DATA_TYPES = frozenset(
+    dt
+    for dt in (
+        getattr(Qgis.DataType, name, None)
+        for name in ("Byte", "Int8", "UInt16", "Int16", "UInt32", "Int32", "CInt16", "CInt32")
+    )
+    if dt is not None
+)
 
 
 class FlagViewerDockWidget(QDockWidget):
@@ -161,7 +176,8 @@ class FlagViewerDockWidget(QDockWidget):
             sample, ok = provider.sample(map_point, band)
             if not ok:
                 continue
-            rows.append(self._build_row(layer.name(), str(band), sample, definition))
+            is_integer = provider.dataType(band) in _INTEGER_RASTER_DATA_TYPES
+            rows.append(self._build_row(layer.name(), str(band), sample, definition, is_integer))
         return rows
 
     def _mesh_rows(self, layer, map_point, canvas_temporal_range):
@@ -182,10 +198,18 @@ class FlagViewerDockWidget(QDockWidget):
             if math.isnan(sample):
                 continue  # outside the mesh domain or an inactive/dry element
             group_label = group_meta.name() or f"Group {group}"
-            rows.append(self._build_row(layer.name(), group_label, sample, definition))
+            # MDAL normalizes every mesh dataset to double, so unlike
+            # rasters there's no dtype to ask the provider for directly.
+            # Same as the grid-as-mesh CF metadata fallback (see
+            # FlagViewerPlugin._auto_detect_mesh_layer): a plain gridded
+            # NetCDF loaded as a mesh bridges 1:1 to GDAL raster bands, so
+            # that's checked here too. Genuine mesh formats (UGRID etc.)
+            # have no such source band, so this stays unknown -> float.
+            is_integer = bool(band_is_integer_type(layer.source(), band_no=group + 1))
+            rows.append(self._build_row(layer.name(), group_label, sample, definition, is_integer))
         return rows
 
-    def _build_row(self, layer_name, band_label, sample, definition):
+    def _build_row(self, layer_name, band_label, sample, definition, is_integer=False):
         if definition is not None:
             hits = definition.decode_detailed(sample)
             meaning_text = ", ".join(meaning for _, meaning in hits) if hits else "(no match)"
@@ -195,7 +219,8 @@ class FlagViewerDockWidget(QDockWidget):
             meaning_text = "(no mapping - see Flag Viewer > Load/Edit Mapping)"
             is_bitmask = False
             bits_text = ""
-        return (layer_name, band_label, str(sample), bits_text, meaning_text, is_bitmask)
+        value_text = str(int(round(sample))) if is_integer else str(sample)
+        return (layer_name, band_label, value_text, bits_text, meaning_text, is_bitmask)
 
     def _show_header_context_menu(self, pos):
         header = self.table.horizontalHeader()
