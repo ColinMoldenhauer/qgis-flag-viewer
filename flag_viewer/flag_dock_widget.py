@@ -100,6 +100,9 @@ class FlagViewerDockWidget(QDockWidget):
         index = self.layer_scope_combo.findData(saved_scope)
         self.layer_scope_combo.setCurrentIndex(index if index >= 0 else 0)
         self.layer_scope_combo.currentIndexChanged.connect(self._on_layer_scope_changed)
+        self.iface.layerTreeView().selectionModel().selectionChanged.connect(
+            self._on_layer_selection_changed
+        )
         layout.addWidget(self.toolbar)
         self.table = QTableWidget(0, len(self.COLUMN_DEFS_CATEGORIZED))
         header = self.table.horizontalHeader()
@@ -151,6 +154,14 @@ class FlagViewerDockWidget(QDockWidget):
 
     def _on_layer_scope_changed(self, _index):
         QSettings().setValue(self.SCOPE_SETTINGS_KEY, self.layer_scope_combo.currentData())
+        if self._last_map_point is not None:
+            self.update_position(self._last_map_point)
+
+    def _on_layer_selection_changed(self, *_args):
+        # Only the "Selected" scope depends on layer-panel selection; other
+        # scopes already refresh from position/visibility changes alone.
+        if self.layer_scope_combo.currentData() != self.SCOPE_SELECTED:
+            return
         if self._last_map_point is not None:
             self.update_position(self._last_map_point)
 
