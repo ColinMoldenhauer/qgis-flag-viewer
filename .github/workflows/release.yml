@@ -47,14 +47,10 @@ jobs:
           --github-token ${{ secrets.GITHUB_TOKEN }}
 
       # Publishing to the official plugins.qgis.org repository is a
-      # separate, one-way public action -- do the manual steps in the
-      # publishing checklist first (create a plugins.qgis.org account,
-      # pass initial review), add OSGEO_USER/OSGEO_PASSWORD as repo
-      # secrets, then uncomment:
-      #
-      # - name: Publish to plugins.qgis.org
-      #   run: >-
-      #     qgis-plugin-ci release ${{ github.ref_name }}
-      #     --github-token ${{ secrets.GITHUB_TOKEN }}
-      #     --osgeo-username ${{ secrets.OSGEO_USER }}
-      #     --osgeo-password ${{ secrets.OSGEO_PASSWORD }}
+      # separate, one-way public action. QGIS_TOKEN is the repo secret
+      # holding the plugin API token generated on plugins.qgis.org.
+      - name: Publish to plugins.qgis.org
+        run: >-
+          qgis-plugin-ci release ${{ github.ref_name }}
+          --github-token ${{ secrets.GITHUB_TOKEN }}
+          --qgis-token ${{ secrets.QGIS_TOKEN }}
