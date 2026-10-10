@@ -14,6 +14,7 @@ resources_rc.py
 
 # Packaging output
 /dist/
+/build/
 *.zip
 
 # GDAL/QGIS auto-generated raster statistics cache, regenerated on open
