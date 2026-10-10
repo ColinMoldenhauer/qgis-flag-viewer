@@ -12,10 +12,30 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
+
+      # Tests are not repeated for the tag; package.yml ran them when the commit was
+      # pushed to main. Wait for that run (it may still be in progress, or not exist
+      # yet if the tag arrived first) and continue only if it passed.
+      - name: Wait for the tests on main for this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for _ in $(seq 1 12); do
+            id=$(gh run list --workflow package.yml --branch main --event push               --commit "$GITHUB_SHA" --json databaseId --jq '.[0].databaseId // empty')
+            [ -n "$id" ] && break
+            sleep 10
+          done
+          if [ -z "$id" ]; then
+            echo "::error::No test run on main for $GITHUB_SHA. Push the commit to main before tagging it."
+            exit 1
+          fi
+          gh run watch "$id" --interval 15 --exit-status
 
       - name: Set up Python
         uses: actions/setup-python@v5

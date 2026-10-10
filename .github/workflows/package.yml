@@ -1,12 +1,17 @@
 name: Test and package
 
+# Runs once per commit, on every branch push (tag pushes are handled by release.yml,
+# which waits for this workflow's run on main). A pull request from a fork is the one
+# case no push event covers, so only those run on pull_request; same-repo PRs would
+# otherwise run twice (push + PR).
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
 
 jobs:
   test-and-package:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
